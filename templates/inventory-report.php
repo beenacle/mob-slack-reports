@@ -28,6 +28,11 @@
     .zone-safe   { color: #ca8a04; font-weight: 600; }
     .zone-ideal  { color: #16a34a; font-weight: 600; }
 
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+    .dot-danger { background: #dc2626; }
+    .dot-safe   { background: #ca8a04; }
+    .dot-ideal  { background: #16a34a; }
+
     .footer { margin-top: 12px; font-size: 7px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 6px; }
 </style>
 </head>
@@ -62,9 +67,9 @@
     <tbody>
     <?php foreach ($rows as $r): ?>
         <?php
-            $zone_class = 'zone-danger';
-            if (strpos($r['status'], 'Ideal') !== false)  $zone_class = 'zone-ideal';
-            elseif (strpos($r['status'], 'Safe') !== false) $zone_class = 'zone-safe';
+            $zone_key = $r['zone_key'];
+            $zone_class = 'zone-' . $zone_key;
+            $dot_class  = 'dot-' . $zone_key;
         ?>
         <tr>
             <td><?php echo esc_html($r['name']); ?></td>
@@ -73,7 +78,7 @@
             <td class="text-center"><?php echo esc_html($r['order_status']); ?></td>
             <td class="text-right"><?php echo number_format($r['projected'], 2); ?></td>
             <td class="text-right"><?php echo ($r['weeks_supply'] === null) ? '<span style="color:#94a3b8">N/A</span>' : number_format($r['weeks_supply'], 1); ?></td>
-            <td class="text-center <?php echo $zone_class; ?>"><?php echo esc_html($r['status']); ?></td>
+            <td class="text-center <?php echo $zone_class; ?>"><span class="dot <?php echo $dot_class; ?>"></span><?php echo esc_html($r['status']); ?></td>
         </tr>
     <?php endforeach; ?>
     </tbody>

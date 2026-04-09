@@ -57,7 +57,7 @@ class MOB_Inventory_Report {
                 $weeks_supply = ($projected > 0) ? round($stock / $projected, 1) : 0.0;
             }
 
-            [$emoji, $zone] = self::zone_from_weeks($weeks_supply);
+            [$zone_key, $zone] = self::zone_from_weeks($weeks_supply);
 
             $rows[] = [
                 'name'          => $name,
@@ -66,7 +66,8 @@ class MOB_Inventory_Report {
                 'order_status'  => ($weekly_orders > 0) ? 'Active' : 'No Orders',
                 'projected'     => $projected,
                 'weeks_supply'  => $weeks_supply,
-                'status'        => "{$emoji} {$zone}",
+                'status'        => $zone,
+                'zone_key'      => $zone_key,
                 'in_sort'       => ($stock !== null && $stock > 0) ? 1 : 0,
                 'qty_sort'      => ($stock === null) ? -1 : $stock,
             ];
@@ -96,10 +97,10 @@ class MOB_Inventory_Report {
     }
 
     private static function zone_from_weeks(?float $weeks): array {
-        if ($weeks === null)              return ['🔴', 'Danger Zone'];
-        if ($weeks <= self::DANGER_WEEKS) return ['🔴', 'Danger Zone'];
-        if ($weeks <= self::SAFE_WEEKS)   return ['🟡', 'Safe Zone'];
-        return ['🟢', 'Ideal Zone'];
+        if ($weeks === null)              return ['danger', 'Danger Zone'];
+        if ($weeks <= self::DANGER_WEEKS) return ['danger', 'Danger Zone'];
+        if ($weeks <= self::SAFE_WEEKS)   return ['safe', 'Safe Zone'];
+        return ['ideal', 'Ideal Zone'];
     }
 
     private static function get_sales_qty_map(int $days, string $tz): array {
