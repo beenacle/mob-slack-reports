@@ -1,0 +1,10 @@
+.mob-send-now {
+    vertical-align: middle;
+}
+
+.mob-send-status {
+    display: inline-block;
+    vertical-align: middle;
+    font-style: italic;
+    color: #555;
+}
