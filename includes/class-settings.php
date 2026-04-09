@@ -80,7 +80,7 @@ class MOB_Reports_Settings {
                 'type'    => 'text',
                 'desc'    => __('24-hour format, e.g. 09:00. Reports are sent daily at this time.', 'mob-slack-reports'),
                 'id'      => self::OPTION_PREFIX . 'delivery_time',
-                'default' => '09:00',
+                'default' => '08:00',
                 'css'     => 'width:80px;',
             ],
             'timezone' => [
@@ -255,7 +255,7 @@ JS;
     }
 
     public static function get_delivery_time(): string {
-        return (string) self::get('delivery_time', '09:00');
+        return (string) self::get('delivery_time', '08:00');
     }
 
     public static function get_inventory_channel(): string {
