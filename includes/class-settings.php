@@ -88,7 +88,7 @@ class MOB_Reports_Settings {
                 'type'    => 'select',
                 'desc'    => __('Timezone for the delivery schedule.', 'mob-slack-reports'),
                 'id'      => self::OPTION_PREFIX . 'timezone',
-                'default' => self::get_site_timezone(),
+                'default' => 'wp_default',
                 'options' => self::get_timezone_options(),
             ],
             'inventory_enabled' => [
@@ -222,22 +222,19 @@ JS;
     }
 
     private static function get_timezone_options(): array {
-        $zones = [
-            'America/New_York'    => 'Eastern (ET)',
-            'America/Chicago'     => 'Central (CT)',
-            'America/Denver'      => 'Mountain (MT)',
-            'America/Los_Angeles' => 'Pacific (PT)',
-            'America/Anchorage'   => 'Alaska (AKT)',
-            'Pacific/Honolulu'    => 'Hawaii (HT)',
-            'UTC'                 => 'UTC',
-        ];
-
         $wp_tz = wp_timezone_string();
-        if ($wp_tz && !isset($zones[$wp_tz])) {
-            $zones[$wp_tz] = $wp_tz . ' (WordPress)';
+        $wp_label = $wp_tz ? "WordPress Default ($wp_tz)" : 'WordPress Default';
+
+        $options = ['wp_default' => $wp_label, 'UTC' => 'UTC'];
+
+        foreach (DateTimeZone::listIdentifiers() as $tz_id) {
+            if (str_starts_with($tz_id, 'UTC') || str_starts_with($tz_id, 'GMT')) {
+                continue;
+            }
+            $options[$tz_id] = str_replace(['/', '_'], [' / ', ' '], $tz_id);
         }
 
-        return $zones;
+        return $options;
     }
 
     // --- Helpers to retrieve options ---
@@ -251,12 +248,12 @@ JS;
     }
 
     public static function get_timezone(): string {
-        return (string) self::get('timezone', self::get_site_timezone());
-    }
-
-    private static function get_site_timezone(): string {
-        $tz = wp_timezone_string();
-        return ($tz !== '' && $tz !== '0') ? $tz : 'America/Chicago';
+        $tz = (string) self::get('timezone', 'wp_default');
+        if ($tz === 'wp_default') {
+            $wp_tz = wp_timezone_string();
+            return ($wp_tz !== '' && $wp_tz !== '0') ? $wp_tz : 'America/Chicago';
+        }
+        return $tz;
     }
 
     public static function get_delivery_time(): string {
