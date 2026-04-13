@@ -104,9 +104,10 @@ class MOB_Inventory_Report {
     }
 
     private static function get_sales_qty_map(int $days, string $tz): array {
-        $after = (new DateTime('now', new DateTimeZone($tz)))
-            ->modify("-{$days} days")
-            ->format('Y-m-d H:i:s');
+        $cutoff = new DateTime('now', new DateTimeZone($tz));
+        $cutoff->modify("-{$days} days")->setTime(0, 0, 0);
+        $cutoff->setTimezone(new DateTimeZone('UTC'));
+        $after = $cutoff->format('Y-m-d H:i:s');
 
         $order_ids = wc_get_orders([
             'limit'      => -1,

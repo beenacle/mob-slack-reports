@@ -80,6 +80,11 @@ class MOB_Profitability_Report {
             $range_display .= ' – ' . $end->format('M j, Y');
         }
 
+        // Convert to UTC for WooCommerce query — wc_get_orders compares against
+        // date_created_gmt, and strtotime() runs in PHP's default TZ (UTC in WP).
+        $start->setTimezone(new DateTimeZone('UTC'));
+        $end->setTimezone(new DateTimeZone('UTC'));
+
         return [
             $start->format('Y-m-d H:i:s'),
             $end->format('Y-m-d H:i:s'),
@@ -105,7 +110,13 @@ class MOB_Profitability_Report {
             if (!$order) continue;
 
             $order_date = $order->get_date_created();
-            $date_str   = $order_date ? $order_date->date('M j') : '';
+            if ($order_date) {
+                $local_date = clone $order_date;
+                $local_date->setTimezone(new DateTimeZone($tz));
+                $date_str = $local_date->format('M j');
+            } else {
+                $date_str = '';
+            }
 
             foreach ($order->get_items() as $item) {
                 $pid     = (int) $item->get_product_id();
