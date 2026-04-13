@@ -88,7 +88,7 @@ class MOB_Reports_Settings {
                 'type'    => 'select',
                 'desc'    => __('Timezone for the delivery schedule.', 'mob-slack-reports'),
                 'id'      => self::OPTION_PREFIX . 'timezone',
-                'default' => 'America/Chicago',
+                'default' => self::get_site_timezone(),
                 'options' => self::get_timezone_options(),
             ],
             'inventory_enabled' => [
@@ -251,7 +251,12 @@ JS;
     }
 
     public static function get_timezone(): string {
-        return (string) self::get('timezone', 'America/Chicago');
+        return (string) self::get('timezone', self::get_site_timezone());
+    }
+
+    private static function get_site_timezone(): string {
+        $tz = wp_timezone_string();
+        return ($tz !== '' && $tz !== '0') ? $tz : 'America/Chicago';
     }
 
     public static function get_delivery_time(): string {

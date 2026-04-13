@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MOB Slack Reports
  * Description: Sends daily Inventory and Profitability report PDFs to configurable Slack channels.
- * Version:     1.0.0
+ * Version:     1.1.0
  * Author:      Beenacle
  * Author URI:  https://beenacle.com
  * Requires at least: 6.0
@@ -14,12 +14,23 @@
 
 defined('ABSPATH') || exit;
 
-define('MOB_REPORTS_VERSION', '1.0.0');
+define('MOB_REPORTS_VERSION', '1.1.0');
 define('MOB_REPORTS_FILE', __FILE__);
 define('MOB_REPORTS_PATH', plugin_dir_path(__FILE__));
 define('MOB_REPORTS_URL', plugin_dir_url(__FILE__));
 
 require_once MOB_REPORTS_PATH . 'vendor/autoload.php';
+require_once MOB_REPORTS_PATH . 'vendor/yahnis-elsts/plugin-update-checker/load-v5p6.php';
+
+use YahnisElsts\PluginUpdateChecker\v5p6\PucFactory;
+
+$mobReportsUpdateChecker = PucFactory::buildUpdateChecker(
+    'https://github.com/beenacle/mob-slack-reports/',
+    __FILE__,
+    'mob-slack-reports'
+);
+$mobReportsUpdateChecker->setBranch('main');
+$mobReportsUpdateChecker->getVcsApi()->enableReleaseAssets();
 require_once MOB_REPORTS_PATH . 'includes/class-settings.php';
 require_once MOB_REPORTS_PATH . 'includes/class-pdf-generator.php';
 require_once MOB_REPORTS_PATH . 'includes/class-slack-sender.php';
