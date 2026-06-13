@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+  # Allow manual re-runs from the Actions tab against any tag/branch.
+  workflow_dispatch:
 
 permissions:
   contents: write
