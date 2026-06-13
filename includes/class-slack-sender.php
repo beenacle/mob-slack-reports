@@ -59,6 +59,15 @@ class MOB_Slack_Sender {
             return ['ok' => false, 'error' => 'upload_failed', 'details' => $upload->get_error_message()];
         }
 
+        $upload_status = (int) wp_remote_retrieve_response_code($upload);
+        if ($upload_status < 200 || $upload_status >= 300) {
+            return [
+                'ok'      => false,
+                'error'   => 'upload_failed',
+                'details' => ['status' => $upload_status, 'body' => wp_remote_retrieve_body($upload)],
+            ];
+        }
+
         $complete = wp_remote_post('https://slack.com/api/files.completeUploadExternal', [
             'headers' => [
                 'Authorization' => 'Bearer ' . $bot_token,

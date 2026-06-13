@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MOB Slack Reports
  * Description: Sends daily Inventory and Profitability report PDFs to configurable Slack channels.
- * Version:     1.1.1
+ * Version:     1.1.2
  * Author:      Beenacle
  * Author URI:  https://beenacle.com
  * Requires at least: 6.0
@@ -14,23 +14,31 @@
 
 defined('ABSPATH') || exit;
 
-define('MOB_REPORTS_VERSION', '1.1.1');
+define('MOB_REPORTS_VERSION', '1.1.2');
 define('MOB_REPORTS_FILE', __FILE__);
 define('MOB_REPORTS_PATH', plugin_dir_path(__FILE__));
 define('MOB_REPORTS_URL', plugin_dir_url(__FILE__));
 
-require_once MOB_REPORTS_PATH . 'vendor/autoload.php';
-require_once MOB_REPORTS_PATH . 'vendor/yahnis-elsts/plugin-update-checker/load-v5p6.php';
+$mob_reports_autoload = MOB_REPORTS_PATH . 'vendor/autoload.php';
+if (!file_exists($mob_reports_autoload)) {
+    add_action('admin_notices', static function () {
+        echo '<div class="notice notice-error"><p><strong>MOB Slack Reports</strong> is missing its dependencies. Run <code>composer install --no-dev</code> in the plugin folder, or install the packaged release ZIP.</p></div>';
+    });
+    return;
+}
+require_once $mob_reports_autoload;
 
-use YahnisElsts\PluginUpdateChecker\v5p6\PucFactory;
-
-$mobReportsUpdateChecker = PucFactory::buildUpdateChecker(
-    'https://github.com/beenacle/mob-slack-reports/',
-    __FILE__,
-    'mob-slack-reports'
-);
-$mobReportsUpdateChecker->setBranch('main');
-$mobReportsUpdateChecker->getVcsApi()->enableReleaseAssets();
+$mob_reports_puc = MOB_REPORTS_PATH . 'vendor/yahnis-elsts/plugin-update-checker/load-v5p6.php';
+if (file_exists($mob_reports_puc)) {
+    require_once $mob_reports_puc;
+    $mobReportsUpdateChecker = \YahnisElsts\PluginUpdateChecker\v5p6\PucFactory::buildUpdateChecker(
+        'https://github.com/beenacle/mob-slack-reports/',
+        __FILE__,
+        'mob-slack-reports'
+    );
+    $mobReportsUpdateChecker->setBranch('main');
+    $mobReportsUpdateChecker->getVcsApi()->enableReleaseAssets();
+}
 require_once MOB_REPORTS_PATH . 'includes/class-settings.php';
 require_once MOB_REPORTS_PATH . 'includes/class-pdf-generator.php';
 require_once MOB_REPORTS_PATH . 'includes/class-slack-sender.php';
@@ -52,6 +60,7 @@ final class MOB_Slack_Reports {
     private function __construct() {
         add_action('before_woocommerce_init', [$this, 'declare_hpos_compatibility']);
         add_action('woocommerce_init', [$this, 'init']);
+        add_action('init', [$this, 'load_textdomain']);
         add_action('admin_notices', [$this, 'admin_notices']);
     }
 
@@ -64,6 +73,10 @@ final class MOB_Slack_Reports {
     public function init(): void {
         MOB_Reports_Settings::instance();
         MOB_Reports_Scheduler::instance();
+    }
+
+    public function load_textdomain(): void {
+        load_plugin_textdomain('mob-slack-reports', false, dirname(plugin_basename(MOB_REPORTS_FILE)) . '/languages');
     }
 
     public function admin_notices(): void {

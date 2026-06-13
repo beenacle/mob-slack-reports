@@ -35,16 +35,25 @@ class MOB_PDF_Generator {
         $options->set('isHtml5ParserEnabled', true);
         $options->set('defaultFont', 'Helvetica');
 
-        $dompdf = new Dompdf($options);
-        $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', $orientation);
-        $dompdf->render();
+        try {
+            $dompdf = new Dompdf($options);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', $orientation);
+            $dompdf->render();
+            $pdf = $dompdf->output();
+        } catch (\Throwable $e) {
+            error_log('[MOB Reports] PDF rendering failed: ' . $e->getMessage());
+            return null;
+        }
 
-        $tmp = wp_tempnam('mob-report-') . '.pdf';
-        $written = file_put_contents($tmp, $dompdf->output());
+        // wp_tempnam() creates and returns the temp file path; write the PDF
+        // bytes straight to it (the display filename is set on the Slack upload).
+        $tmp     = wp_tempnam('mob-report-');
+        $written = file_put_contents($tmp, $pdf);
 
         if ($written === false) {
             error_log('[MOB Reports] Failed to write PDF to temp file.');
+            @unlink($tmp);
             return null;
         }
 

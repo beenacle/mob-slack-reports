@@ -54,7 +54,7 @@ $fmt = function($v) { return '$' . number_format((float) $v, 2); };
 <table>
     <thead>
         <tr>
-            <th style="width:8%">Date</th>
+            <th style="width:8%">Last Sold</th>
             <th style="width:28%">Product</th>
             <th class="text-right" style="width:11%">Per Unit Sale</th>
             <th class="text-right" style="width:10%">Qty Sold</th>
@@ -70,7 +70,7 @@ $fmt = function($v) { return '$' . number_format((float) $v, 2); };
             <td><?php echo esc_html($r['product']); ?></td>
             <td class="text-right"><?php echo $fmt($r['unit_price']); ?></td>
             <td class="text-right"><?php echo (int) $r['qty_sold']; ?></td>
-            <td class="text-right"><?php echo $fmt($r['cogs_per_unit']); ?></td>
+            <td class="text-right"><?php echo $fmt($r['cogs_total']); ?></td>
             <td class="text-right"><?php echo $fmt($r['gross_sales']); ?></td>
             <td class="text-right <?php echo $r['net_sales'] >= 0 ? 'positive' : 'negative'; ?>">
                 <?php echo $fmt($r['net_sales']); ?>

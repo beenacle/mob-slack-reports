@@ -34,6 +34,12 @@ class MOB_Reports_Settings {
     public function save_settings(): void {
         woocommerce_update_options($this->get_settings());
 
+        // Normalise the free-text delivery time so the scheduler always gets HH:MM.
+        update_option(
+            self::OPTION_PREFIX . 'delivery_time',
+            self::normalize_time((string) self::get('delivery_time', '08:00'))
+        );
+
         MOB_Reports_Scheduler::reschedule_events();
     }
 
@@ -164,7 +170,7 @@ class MOB_Reports_Settings {
         if ($hook !== 'woocommerce_page_wc-settings') {
             return;
         }
-        if (!isset($_GET['tab']) || $_GET['tab'] !== 'slack_reports') {
+        if (!isset($_GET['tab']) || sanitize_text_field(wp_unslash($_GET['tab'])) !== 'slack_reports') {
             return;
         }
 
@@ -203,7 +209,7 @@ JS;
             wp_send_json_error('Permission denied.');
         }
 
-        $report = sanitize_text_field($_POST['report'] ?? '');
+        $report = sanitize_text_field(wp_unslash($_POST['report'] ?? ''));
 
         if ($report === 'inventory') {
             $result = MOB_Reports_Scheduler::send_inventory_report();
@@ -257,7 +263,20 @@ JS;
     }
 
     public static function get_delivery_time(): string {
-        return (string) self::get('delivery_time', '08:00');
+        return self::normalize_time((string) self::get('delivery_time', '08:00'));
+    }
+
+    /**
+     * Coerce a user-entered time string to a valid 24-hour HH:MM value.
+     * Falls back to 08:00 for unparseable input.
+     */
+    public static function normalize_time(string $value): string {
+        if (preg_match('/^\s*(\d{1,2}):(\d{2})\s*$/', $value, $m)) {
+            $hour = min(23, (int) $m[1]);
+            $min  = min(59, (int) $m[2]);
+            return sprintf('%02d:%02d', $hour, $min);
+        }
+        return '08:00';
     }
 
     public static function get_inventory_channel(): string {

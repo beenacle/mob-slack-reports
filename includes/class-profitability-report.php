@@ -3,6 +3,8 @@ defined('ABSPATH') || exit;
 
 class MOB_Profitability_Report {
 
+    private const BATCH_SIZE = 200;
+
     /**
      * Generate the profitability report PDF and return its temp file path.
      *
@@ -94,70 +96,80 @@ class MOB_Profitability_Report {
     }
 
     private static function build_rows(string $date_after, string $date_before, string $tz): array {
-        $order_ids = wc_get_orders([
-            'limit'        => -1,
-            'status'       => ['wc-completed', 'wc-processing'],
-            'date_after'   => $date_after,
-            'date_before'  => $date_before,
-            'return'       => 'ids',
-        ]);
-
-        // Aggregate: product_id => [qty, revenue, cogs_total, unit_price, cogs_per_unit, name, date]
+        // Aggregate per product: name, qty, gross revenue, COGS, last-sold date.
         $aggregated = [];
 
-        foreach ($order_ids as $oid) {
-            $order = wc_get_order($oid);
-            if (!$order) continue;
+        $page = 1;
+        do {
+            $orders = wc_get_orders([
+                'limit'        => self::BATCH_SIZE,
+                'page'         => $page,
+                'status'       => ['wc-completed', 'wc-processing'],
+                'date_after'   => $date_after,
+                'date_before'  => $date_before,
+                'orderby'      => 'ID',
+                'order'        => 'ASC',
+            ]);
 
-            $order_date = $order->get_date_created();
-            if ($order_date) {
-                $local_date = clone $order_date;
-                $local_date->setTimezone(new DateTimeZone($tz));
-                $date_str = $local_date->format('M j');
-            } else {
-                $date_str = '';
-            }
+            foreach ($orders as $order) {
+                if (!$order) continue;
 
-            foreach ($order->get_items() as $item) {
-                $pid     = (int) $item->get_product_id();
-                $product = $item->get_product();
-                if (!$pid || !$product) continue;
-
-                $qty        = (float) $item->get_quantity();
-                $line_total = (float) $item->get_total();
-                $unit_price = $qty > 0 ? $line_total / $qty : (float) $product->get_price();
-
-                $cogs_per_unit = (float) $product->get_cogs_total_value();
-
-                if (!isset($aggregated[$pid])) {
-                    $aggregated[$pid] = [
-                        'product'       => $product->get_name(),
-                        'unit_price'    => $unit_price,
-                        'cogs_per_unit' => $cogs_per_unit,
-                        'qty_sold'      => 0,
-                        'gross_sales'   => 0.0,
-                        'date'          => $date_str,
-                    ];
+                $order_date = $order->get_date_created();
+                if ($order_date) {
+                    $local_date = clone $order_date;
+                    $local_date->setTimezone(new DateTimeZone($tz));
+                    $date_str = $local_date->format('M j');
+                    $date_ts  = $order_date->getTimestamp();
+                } else {
+                    $date_str = '';
+                    $date_ts  = 0;
                 }
 
-                $aggregated[$pid]['qty_sold']    += $qty;
-                $aggregated[$pid]['gross_sales'] += $line_total;
+                foreach ($order->get_items() as $item) {
+                    $pid     = (int) $item->get_product_id();
+                    $product = $item->get_product();
+                    if (!$pid || !$product) continue;
+
+                    $qty        = (float) $item->get_quantity();
+                    $line_total = (float) $item->get_total();
+                    $line_cogs  = self::line_cogs($item, $product, $qty);
+
+                    if (!isset($aggregated[$pid])) {
+                        $aggregated[$pid] = [
+                            'product'     => $product->get_name(),
+                            'qty_sold'    => 0.0,
+                            'gross_sales' => 0.0,
+                            'cogs_total'  => 0.0,
+                            'date'        => $date_str,
+                            'date_ts'     => $date_ts,
+                        ];
+                    } elseif ($date_ts > $aggregated[$pid]['date_ts']) {
+                        // Track the most recent sale date for the product.
+                        $aggregated[$pid]['date']    = $date_str;
+                        $aggregated[$pid]['date_ts'] = $date_ts;
+                    }
+
+                    $aggregated[$pid]['qty_sold']    += $qty;
+                    $aggregated[$pid]['gross_sales'] += $line_total;
+                    $aggregated[$pid]['cogs_total']  += $line_cogs;
+                }
             }
-        }
+
+            $page++;
+        } while (count($orders) === self::BATCH_SIZE);
 
         $rows = [];
-        foreach ($aggregated as $pid => $data) {
-            $total_cogs = $data['cogs_per_unit'] * $data['qty_sold'];
-            $net_sales  = $data['gross_sales'] - $total_cogs;
+        foreach ($aggregated as $data) {
+            $qty = $data['qty_sold'];
 
             $rows[] = [
-                'date'          => $data['date'],
-                'product'       => $data['product'],
-                'unit_price'    => $data['unit_price'],
-                'qty_sold'      => $data['qty_sold'],
-                'cogs_per_unit' => $data['cogs_per_unit'],
-                'gross_sales'   => $data['gross_sales'],
-                'net_sales'     => $net_sales,
+                'date'        => $data['date'],
+                'product'     => $data['product'],
+                'unit_price'  => $qty > 0 ? $data['gross_sales'] / $qty : 0.0,
+                'qty_sold'    => $qty,
+                'cogs_total'  => $data['cogs_total'],
+                'gross_sales' => $data['gross_sales'],
+                'net_sales'   => $data['gross_sales'] - $data['cogs_total'],
             ];
         }
 
@@ -166,12 +178,37 @@ class MOB_Profitability_Report {
         return $rows;
     }
 
+    /**
+     * Resolve the cost of goods for a single order line.
+     *
+     * Prefers the COGS captured on the order item at the time of sale, which
+     * stays accurate even after the product's cost is later changed. Falls
+     * back to the product's current per-unit COGS × quantity (for orders that
+     * predate the COGS feature), and to 0.0 when COGS is unavailable — so the
+     * report never fatals on a WooCommerce version without COGS support.
+     */
+    private static function line_cogs(\WC_Order_Item $item, \WC_Product $product, float $qty): float {
+        if (method_exists($item, 'get_cogs_value')) {
+            $recorded = (float) $item->get_cogs_value();
+            if ($recorded > 0) {
+                return $recorded;
+            }
+        }
+        if (method_exists($product, 'get_cogs_total_value')) {
+            return (float) $product->get_cogs_total_value() * $qty;
+        }
+        if (method_exists($product, 'get_cogs_value')) {
+            return (float) $product->get_cogs_value() * $qty;
+        }
+        return 0.0;
+    }
+
     private static function compute_totals(array $rows): array {
         $totals = ['qty_sold' => 0, 'total_cogs' => 0.0, 'gross_sales' => 0.0, 'net_sales' => 0.0];
 
         foreach ($rows as $r) {
             $totals['qty_sold']    += $r['qty_sold'];
-            $totals['total_cogs']  += $r['cogs_per_unit'] * $r['qty_sold'];
+            $totals['total_cogs']  += $r['cogs_total'];
             $totals['gross_sales'] += $r['gross_sales'];
             $totals['net_sales']   += $r['net_sales'];
         }

@@ -16,8 +16,8 @@ class MOB_Reports_Scheduler {
     }
 
     private function __construct() {
-        add_action(self::INVENTORY_HOOK, [__CLASS__, 'send_inventory_report']);
-        add_action(self::PROFIT_HOOK, [__CLASS__, 'send_profitability_report']);
+        add_action(self::INVENTORY_HOOK, [__CLASS__, 'run_inventory_report']);
+        add_action(self::PROFIT_HOOK, [__CLASS__, 'run_profitability_report']);
         add_action('init', [__CLASS__, 'ensure_scheduled']);
     }
 
@@ -70,6 +70,35 @@ class MOB_Reports_Scheduler {
         }
 
         return $run->getTimestamp();
+    }
+
+    /**
+     * Cron callback: run the inventory report and log unexpected failures.
+     */
+    public static function run_inventory_report(): void {
+        self::log_cron_result('inventory', self::send_inventory_report());
+    }
+
+    /**
+     * Cron callback: run the profitability report and log unexpected failures.
+     */
+    public static function run_profitability_report(): void {
+        self::log_cron_result('profitability', self::send_profitability_report());
+    }
+
+    /**
+     * Log scheduled-report failures so silent cron problems become visible.
+     * Intentional states (a report being disabled) are not logged as errors.
+     */
+    private static function log_cron_result(string $report, array $result): void {
+        if (!empty($result['ok'])) {
+            return;
+        }
+        $error = $result['error'] ?? 'unknown_error';
+        if ($error === 'inventory_report_disabled' || $error === 'profit_report_disabled') {
+            return;
+        }
+        error_log(sprintf('[MOB Reports] Scheduled %s report failed: %s', $report, $error));
     }
 
     /**

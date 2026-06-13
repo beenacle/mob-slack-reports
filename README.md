@@ -8,7 +8,7 @@ A WooCommerce plugin that generates daily **Inventory** and **Profitability** re
 - **Profitability Report** — per-product revenue, cost of goods, gross sales, net sales, and margin summary using WooCommerce's built-in COGS feature
 - **PDF output** — clean, branded reports with site logo, date, styled tables, and summary statistics via DOMPDF
 - **Slack delivery** — uploads PDFs directly to Slack channels using the modern `files.uploadV2` API flow
-- **Configurable scheduling** — daily delivery at a time and timezone you choose (default: 9:00 AM Central)
+- **Configurable scheduling** — daily delivery at a time and timezone you choose (default: 8:00 AM, WordPress site timezone)
 - **Separate channels** — route inventory and profitability reports to different Slack channels
 - **Manual trigger** — "Send Now" buttons in the settings page for instant testing
 - **Multi-site ready** — install on multiple WooCommerce stores, each with independent settings pointing to the same or different Slack channels
@@ -52,10 +52,16 @@ All settings are managed under **WooCommerce > Settings > Slack Reports**:
 | Slack Bot Token | — | `xoxb-*` token with `files:write` and `chat:write` scopes |
 | Inventory Report Channel ID | — | Slack channel for inventory reports |
 | Profitability Report Channel ID | — | Slack channel for profitability reports |
-| Delivery Time | `09:00` | 24-hour format, daily send time |
-| Timezone | `America/Chicago` | Timezone for scheduling |
+| Delivery Time | `08:00` | 24-hour format, daily send time |
+| Timezone | WordPress Default | Site timezone (falls back to `America/Chicago`) |
 | Profitability Report Period | Previous Day | Time window for order data |
 | Inventory Sales Window | 28 days | Lookback period for weekly sales averages |
+
+> **Scheduling notes:** Reports are sent via WP-Cron, which only runs on site
+> traffic — on a low-traffic store delivery may lag until the next visit
+> (point a real system cron at `wp-cron.php` for precise timing). Because
+> WP-Cron uses fixed daily intervals, the local send time can shift by an hour
+> across daylight-saving changes.
 
 ## Slack Bot Setup
 

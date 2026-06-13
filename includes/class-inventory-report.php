@@ -6,6 +6,7 @@ class MOB_Inventory_Report {
     private const WEEKLY_GROWTH  = 0.10;
     private const DANGER_WEEKS   = 10.0;
     private const SAFE_WEEKS     = 15.0;
+    private const BATCH_SIZE     = 200;
 
     /**
      * Generate the inventory report PDF and return its temp file path.
@@ -38,40 +39,47 @@ class MOB_Inventory_Report {
     }
 
     private static function build_rows(int $sales_window, string $tz): array {
-        $products  = wc_get_products(['limit' => -1, 'status' => 'publish']);
         $sales_map = self::get_sales_qty_map($sales_window, $tz);
         $weeks_div = max(1, $sales_window / 7);
 
         $rows = [];
-        foreach ($products as $p) {
-            $pid   = $p->get_id();
-            $name  = $p->get_name();
-            $stock = self::stock_qty_or_null($p);
+        $page = 1;
+        do {
+            $products = wc_get_products([
+                'limit'   => self::BATCH_SIZE,
+                'page'    => $page,
+                'status'  => 'publish',
+                'orderby' => 'ID',
+                'order'   => 'ASC',
+            ]);
 
-            $sold_in_window = (float) ($sales_map[$pid] ?? 0.0);
-            $weekly_orders  = round($sold_in_window / $weeks_div, 2);
-            $projected      = round($weekly_orders * (1 + self::WEEKLY_GROWTH), 2);
+            foreach ($products as $p) {
+                $pid   = $p->get_id();
+                $name  = $p->get_name();
+                $stock = self::stock_qty_or_null($p);
 
-            $weeks_supply = null;
-            if ($stock !== null) {
-                $weeks_supply = ($projected > 0) ? round($stock / $projected, 1) : 0.0;
+                $sold_in_window = (float) ($sales_map[$pid] ?? 0.0);
+                $weekly_orders  = round($sold_in_window / $weeks_div, 2);
+                $projected      = round($weekly_orders * (1 + self::WEEKLY_GROWTH), 2);
+
+                [$weeks_supply, $zone_key, $zone] = self::classify($stock, $projected);
+
+                $rows[] = [
+                    'name'          => $name,
+                    'stock'         => $stock,
+                    'weekly_orders' => $weekly_orders,
+                    'order_status'  => ($weekly_orders > 0) ? 'Active' : 'No Orders',
+                    'projected'     => $projected,
+                    'weeks_supply'  => $weeks_supply,
+                    'status'        => $zone,
+                    'zone_key'      => $zone_key,
+                    'in_sort'       => ($stock !== null && $stock > 0) ? 1 : 0,
+                    'qty_sort'      => ($stock === null) ? -1 : $stock,
+                ];
             }
 
-            [$zone_key, $zone] = self::zone_from_weeks($weeks_supply);
-
-            $rows[] = [
-                'name'          => $name,
-                'stock'         => $stock,
-                'weekly_orders' => $weekly_orders,
-                'order_status'  => ($weekly_orders > 0) ? 'Active' : 'No Orders',
-                'projected'     => $projected,
-                'weeks_supply'  => $weeks_supply,
-                'status'        => $zone,
-                'zone_key'      => $zone_key,
-                'in_sort'       => ($stock !== null && $stock > 0) ? 1 : 0,
-                'qty_sort'      => ($stock === null) ? -1 : $stock,
-            ];
-        }
+            $page++;
+        } while (count($products) === self::BATCH_SIZE);
 
         usort($rows, function ($a, $b) {
             if ($a['in_sort'] !== $b['in_sort']) return $b['in_sort'] <=> $a['in_sort'];
@@ -96,11 +104,28 @@ class MOB_Inventory_Report {
         return (int) round($qty);
     }
 
-    private static function zone_from_weeks(?float $weeks): array {
-        if ($weeks === null)              return ['danger', 'Danger Zone'];
-        if ($weeks <= self::DANGER_WEEKS) return ['danger', 'Danger Zone'];
-        if ($weeks <= self::SAFE_WEEKS)   return ['safe', 'Safe Zone'];
-        return ['ideal', 'Ideal Zone'];
+    /**
+     * Classify a product into a stock zone.
+     *
+     * Weeks of supply is only meaningful when stock is tracked AND there is
+     * projected demand. Untracked products and zero-demand products are
+     * reported as neutral states rather than being mislabelled "Danger" — a
+     * well-stocked product with no recent sales will never run out.
+     *
+     * @return array{0: float|null, 1: string, 2: string} [weeks_supply, zone_key, status]
+     */
+    private static function classify(?int $stock, float $projected): array {
+        if ($stock === null) {
+            return [null, 'untracked', 'Not Tracked'];
+        }
+        if ($projected <= 0) {
+            return [null, 'none', 'No Sales'];
+        }
+
+        $weeks = round($stock / $projected, 1);
+        if ($weeks <= self::DANGER_WEEKS) return [$weeks, 'danger', 'Danger Zone'];
+        if ($weeks <= self::SAFE_WEEKS)   return [$weeks, 'safe', 'Safe Zone'];
+        return [$weeks, 'ideal', 'Ideal Zone'];
     }
 
     private static function get_sales_qty_map(int $days, string $tz): array {
@@ -109,23 +134,29 @@ class MOB_Inventory_Report {
         $cutoff->setTimezone(new DateTimeZone('UTC'));
         $after = $cutoff->format('Y-m-d H:i:s');
 
-        $order_ids = wc_get_orders([
-            'limit'      => -1,
-            'status'     => ['wc-completed', 'wc-processing'],
-            'date_after' => $after,
-            'return'     => 'ids',
-        ]);
+        $map  = [];
+        $page = 1;
+        do {
+            $orders = wc_get_orders([
+                'limit'      => self::BATCH_SIZE,
+                'page'       => $page,
+                'status'     => ['wc-completed', 'wc-processing'],
+                'date_after' => $after,
+                'orderby'    => 'ID',
+                'order'      => 'ASC',
+            ]);
 
-        $map = [];
-        foreach ($order_ids as $oid) {
-            $order = wc_get_order($oid);
-            if (!$order) continue;
-            foreach ($order->get_items() as $item) {
-                $pid = (int) $item->get_product_id();
-                if (!$pid) continue;
-                $map[$pid] = ($map[$pid] ?? 0) + (float) $item->get_quantity();
+            foreach ($orders as $order) {
+                if (!$order) continue;
+                foreach ($order->get_items() as $item) {
+                    $pid = (int) $item->get_product_id();
+                    if (!$pid) continue;
+                    $map[$pid] = ($map[$pid] ?? 0) + (float) $item->get_quantity();
+                }
             }
-        }
+
+            $page++;
+        } while (count($orders) === self::BATCH_SIZE);
 
         return $map;
     }

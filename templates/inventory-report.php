@@ -24,9 +24,11 @@
     .text-center { text-align: center; }
     .nowrap { white-space: nowrap; }
 
-    .zone-danger { color: #dc2626; font-weight: 700; }
-    .zone-safe   { color: #ca8a04; font-weight: 600; }
-    .zone-ideal  { color: #16a34a; font-weight: 600; }
+    .zone-danger    { color: #dc2626; font-weight: 700; }
+    .zone-safe      { color: #ca8a04; font-weight: 600; }
+    .zone-ideal     { color: #16a34a; font-weight: 600; }
+    .zone-none      { color: #64748b; }
+    .zone-untracked { color: #94a3b8; font-style: italic; }
 
 
     .footer { margin-top: 12px; font-size: 7px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 6px; }
@@ -78,11 +80,14 @@
     </tbody>
 </table>
 
+<?php $zone_counts = array_count_values(array_column($rows, 'zone_key')); ?>
 <div class="meta" style="margin-top:8px;">
     Total Products: <?php echo count($rows); ?> &nbsp;|&nbsp;
-    Danger Zone: <?php echo count(array_filter($rows, fn($r) => strpos($r['status'], 'Danger') !== false)); ?> &nbsp;|&nbsp;
-    Safe Zone: <?php echo count(array_filter($rows, fn($r) => strpos($r['status'], 'Safe') !== false)); ?> &nbsp;|&nbsp;
-    Ideal Zone: <?php echo count(array_filter($rows, fn($r) => strpos($r['status'], 'Ideal') !== false)); ?>
+    Danger Zone: <?php echo (int) ($zone_counts['danger'] ?? 0); ?> &nbsp;|&nbsp;
+    Safe Zone: <?php echo (int) ($zone_counts['safe'] ?? 0); ?> &nbsp;|&nbsp;
+    Ideal Zone: <?php echo (int) ($zone_counts['ideal'] ?? 0); ?> &nbsp;|&nbsp;
+    No Sales: <?php echo (int) ($zone_counts['none'] ?? 0); ?> &nbsp;|&nbsp;
+    Not Tracked: <?php echo (int) ($zone_counts['untracked'] ?? 0); ?>
 </div>
 
 <div class="footer">
