@@ -28,17 +28,9 @@ if (!file_exists($mob_reports_autoload)) {
 }
 require_once $mob_reports_autoload;
 
-$mob_reports_puc = MOB_REPORTS_PATH . 'vendor/yahnis-elsts/plugin-update-checker/load-v5p6.php';
-if (file_exists($mob_reports_puc)) {
-    require_once $mob_reports_puc;
-    $mobReportsUpdateChecker = \YahnisElsts\PluginUpdateChecker\v5p6\PucFactory::buildUpdateChecker(
-        'https://github.com/beenacle/mob-slack-reports/',
-        __FILE__,
-        'mob-slack-reports'
-    );
-    $mobReportsUpdateChecker->setBranch('main');
-    $mobReportsUpdateChecker->getVcsApi()->enableReleaseAssets();
-}
+// GitHub-Releases self-updater (shared across beenacle plugins).
+require_once MOB_REPORTS_PATH . 'includes/GitHubUpdater.php';
+( new \Beenacle\MobSlackReports\GitHubUpdater( MOB_REPORTS_FILE, 'beenacle', 'mob-slack-reports' ) )->register();
 require_once MOB_REPORTS_PATH . 'includes/class-settings.php';
 require_once MOB_REPORTS_PATH . 'includes/class-pdf-generator.php';
 require_once MOB_REPORTS_PATH . 'includes/class-slack-sender.php';

@@ -1,15 +1,14 @@
 {
-    "name": "mob/slack-reports",
-    "description": "WooCommerce plugin that sends inventory and profitability report PDFs to Slack channels.",
-    "type": "wordpress-plugin",
-    "require": {
-        "php": ">=7.4",
-        "dompdf/dompdf": "^3.0",
-        "yahnis-elsts/plugin-update-checker": "^5.6"
-    },
-    "autoload": {
-        "classmap": [
-            "includes/"
-        ]
-    }
+  "name": "mob/slack-reports",
+  "description": "WooCommerce plugin that sends inventory and profitability report PDFs to Slack channels.",
+  "type": "wordpress-plugin",
+  "require": {
+    "php": ">=7.4",
+    "dompdf/dompdf": "^3.0"
+  },
+  "autoload": {
+    "classmap": [
+      "includes/"
+    ]
+  }
 }
