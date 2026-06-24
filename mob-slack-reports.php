@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MOB Slack Reports
  * Description: Sends daily Inventory and Profitability report PDFs to configurable Slack channels.
- * Version:     1.1.3
+ * Version:     1.1.4
  * Author:      Beenacle
  * Author URI:  https://beenacle.com
  * Requires at least: 6.0
@@ -14,7 +14,7 @@
 
 defined('ABSPATH') || exit;
 
-define('MOB_REPORTS_VERSION', '1.1.3');
+define('MOB_REPORTS_VERSION', '1.1.4');
 define('MOB_REPORTS_FILE', __FILE__);
 define('MOB_REPORTS_PATH', plugin_dir_path(__FILE__));
 define('MOB_REPORTS_URL', plugin_dir_url(__FILE__));
