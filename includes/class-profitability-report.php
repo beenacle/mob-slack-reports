@@ -104,6 +104,7 @@ class MOB_Profitability_Report {
             $orders = wc_get_orders([
                 'limit'        => self::BATCH_SIZE,
                 'page'         => $page,
+                'type'         => 'shop_order',
                 'status'       => ['wc-completed', 'wc-processing'],
                 'date_after'   => $date_after,
                 'date_before'  => $date_before,
